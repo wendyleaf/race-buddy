@@ -14,6 +14,7 @@ import {
 export function RaceDashboard({ initialRaces }: RaceDashboardProps) {
   const [races, setRaces] = useState<Race[]>(initialRaces)
   const [filter, setFilter] = useState<FilterType>("All")
+  const [focusedLocation, setFocusedLocation] = useState<{ latitude: number; longitude: number } | null>(null)
 
   // Filter races based on the selected filter
   const filteredRaces = races.filter((race) => {
@@ -33,7 +34,9 @@ export function RaceDashboard({ initialRaces }: RaceDashboardProps) {
   })
 
   function handleRaceSelect(race: Race) {
-    console.log("Selected race ID:", race.id)
+    if (race.latitude && race.longitude) {
+      setFocusedLocation({ latitude: race.latitude, longitude: race.longitude })
+    }
   }
 
   return (
@@ -65,7 +68,7 @@ export function RaceDashboard({ initialRaces }: RaceDashboardProps) {
         </div>
       </div>
       <div className="hidden flex-1 md:block">
-        <RaceMap races={filteredRaces} />
+        <RaceMap races={filteredRaces} focusedLocation={focusedLocation} />
       </div>
     </div>
   )

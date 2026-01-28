@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import Map, { Marker, Popup } from "react-map-gl/mapbox"
+import { useState, useEffect, useRef } from "react"
+import Map, { Marker, Popup, MapRef } from "react-map-gl/mapbox"
 
 const INITIAL_VIEW_STATE = {
   latitude: 40.7128,
@@ -13,13 +13,25 @@ const INITIAL_VIEW_STATE = {
 
 const MAP_STYLE = { width: "100%", height: "100%" }
 
-export function RaceMap({ races }: RaceMapProps) {
+export function RaceMap({ races, focusedLocation }: RaceMapProps) {
   const [selectedRace, setSelectedRace] = useState<Race | null>(null)
   const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
+  const mapRef = useRef<MapRef>(null)
+
+  useEffect(() => {
+    if (focusedLocation && mapRef.current) {
+      mapRef.current.flyTo({
+        center: [focusedLocation.longitude, focusedLocation.latitude],
+        zoom: 14,
+        duration: 2000,
+      })
+    }
+  }, [focusedLocation])
 
   return (
     <div className="h-full w-full">
       <Map
+        ref={mapRef}
         initialViewState={INITIAL_VIEW_STATE}
         mapStyle="mapbox://styles/mapbox/light-v11"
         mapboxAccessToken={mapboxToken}
@@ -66,6 +78,7 @@ export function RaceMap({ races }: RaceMapProps) {
 
 interface RaceMapProps {
   races: Race[]
+  focusedLocation: { latitude: number; longitude: number } | null
 }
 
 interface Race {
