@@ -3,6 +3,16 @@
 import { useState } from "react"
 import Map, { Marker, Popup } from "react-map-gl/mapbox"
 
+const INITIAL_VIEW_STATE = {
+  latitude: 40.7128,
+  longitude: -74.0060,
+  zoom: 12,
+  pitch: 0,
+  bearing: 0,
+}
+
+const MAP_STYLE = { width: "100%", height: "100%" }
+
 export function RaceMap({ races }: RaceMapProps) {
   const [selectedRace, setSelectedRace] = useState<Race | null>(null)
   const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
@@ -10,10 +20,15 @@ export function RaceMap({ races }: RaceMapProps) {
   return (
     <div className="h-full w-full">
       <Map
-        initialViewState={{ latitude: 20, longitude: 0, zoom: 3 }}
-        mapStyle="mapbox://styles/mapbox/streets-v12"
+        initialViewState={INITIAL_VIEW_STATE}
+        mapStyle="mapbox://styles/mapbox/light-v11"
         mapboxAccessToken={mapboxToken}
-        style={{ width: "100%", height: "100%" }}
+        style={MAP_STYLE}
+        pitch={0}
+        minPitch={0}
+        maxPitch={0}
+        dragRotate={false}
+        touchPitch={false}
       >
         {races
           .filter((race) => typeof race.latitude === "number")
