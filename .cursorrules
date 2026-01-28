@@ -1,0 +1,274 @@
+# Race Buddy - Road Running Race Discovery Platform
+
+## Project Overview
+
+Race Buddy is a web application that helps runners discover, track, and plan for major road races around the world. The app aggregates race data from the web and surfaces it through an intuitive interface with filtering and map visualization.
+
+**Tech Stack:**
+- Framework: Next.js (App Router) with React 19
+- Styling: Tailwind CSS, Shadcn UI, Radix UI
+- Database & Auth: Supabase (PostgreSQL)
+- Key Features: Browse races, filter by distance, map view, future user features (auth, bookmarking, alerts)
+
+---
+
+## General Development Standards
+
+### Code Style and Structure
+- Write concise, technical TypeScript code with accurate examples.
+- Use functional and declarative programming patterns; avoid classes.
+- Prefer iteration and modularization over code duplication.
+- Use descriptive variable names with auxiliary verbs (e.g., isLoading, hasError).
+- Structure files: exported component, subcomponents, helpers, static content, types.
+
+### Naming Conventions
+- Use lowercase with dashes for directories (e.g., components/auth-wizard).
+- Favor named exports for components.
+
+### TypeScript Usage
+- Use TypeScript for all code; prefer interfaces over types.
+- Avoid enums; use maps instead.
+- Use functional components with TypeScript interfaces.
+
+### Syntax and Formatting
+- Use the "function" keyword for pure functions.
+- Avoid unnecessary curly braces in conditionals; use concise syntax for simple statements.
+- Use declarative JSX.
+
+### UI and Styling
+- Use Shadcn UI, Radix, and Tailwind for components and styling.
+- Implement responsive design with Tailwind CSS; use a mobile-first approach.
+
+### Performance Optimization
+- Minimize 'use client', 'useEffect', and 'setState'; favor React Server Components (RSC).
+- Wrap client components in Suspense with fallback.
+- Use dynamic loading for non-critical components.
+- Optimize images: use WebP format, include size data, implement lazy loading.
+
+### Key Conventions
+- Use 'nuqs' for URL search parameter state management.
+- Optimize Web Vitals (LCP, CLS, FID).
+- Limit 'use client':
+  - Favor server components and Next.js SSR.
+  - Use only for Web API access in small components.
+  - Avoid for data fetching or state management.
+
+Follow Next.js docs for Data Fetching, Rendering, and Routing.
+
+---
+
+## Frontend Rules (Race Buddy Specific)
+
+### Architecture & Components
+
+**Server vs Client Components:**
+- Default to React Server Components for all components
+- Only use `"use client"` when you need:
+  - State management (`useState`, `useReducer`)
+  - Effects (`useEffect`, `useLayoutEffect`)
+  - Browser APIs (localStorage, geolocation, etc.)
+  - Event handlers and interactivity
+- Pass initial data from Server Components to Client Components as props
+  - Example: `src/app/page.tsx` fetches data server-side → passes `initialRaces` to `src/components/race-dashboard.tsx`
+
+**Component Organization:**
+- UI primitives in `src/components/ui/` (Shadcn components: Button, Card, Badge, Select, etc.)
+- Feature components in `src/components/` (race-card, race-dashboard, race-map)
+- Keep components focused and single-purpose
+
+### Type Safety
+
+**Race Interface:**
+- Define `Race` interface consistently (currently duplicated across multiple files - should be centralized)
+- Required fields: `id`, `name`, `date`, `location`
+- Nullable fields: `country`, `distance`, `type`, `description`, `image_url`, `latitude`, `longitude`
+- Use explicit nullable types: `string | null`, `number | null`
+
+**Null Handling:**
+- Use `??` operator for null fallbacks (e.g., `race.image_url ?? "/file.svg"`)
+- Handle nullable fields before rendering:
+  - Example: `race.country ? \`\${race.location}, \${race.country}\` : race.location`
+- Filter out null coordinates before map rendering:
+  - Example: `races.filter((race) => typeof race.latitude === "number")`
+
+### Styling & UI
+
+**Tailwind Patterns:**
+- Use Tailwind for all styling - avoid custom CSS unless absolutely necessary
+- Mobile-first responsive design (sm, md, lg, xl breakpoints)
+- Consistent spacing scale (px-6, py-4, gap-2, etc.)
+- Use semantic color classes (text-zinc-900, bg-zinc-50, etc.)
+
+**Shadcn/Radix Components:**
+- Import from `@/components/ui/` for all UI primitives
+- Common components: `Card`, `Badge`, `Button`, `Select`
+- Follow Shadcn composition patterns (e.g., Card with CardContent, CardFooter)
+
+**Images:**
+- Lazy load with `loading="lazy"` attribute
+- Provide fallback images for null `image_url` values
+- Use descriptive alt text
+
+### State & Filtering
+
+**Filter Management:**
+- Keep filter state at the dashboard/page level
+- Use type-safe filter enums: `type FilterType = "All" | "Marathon" | "Half" | "Ultra"`
+- Case-insensitive string matching for distance filters
+- Handle edge cases (e.g., "marathon" vs "half marathon" vs "ultra marathon")
+
+**Future: URL State**
+- Plan to use `nuqs` for URL search parameter state management
+- Makes filters shareable via URL
+- Enables deep linking to filtered views
+
+---
+
+## Backend Rules (Race Buddy Specific)
+
+### Supabase Patterns
+
+**Client Usage:**
+- Use `createServerClient()` in Server Components and API routes
+- Import from `@/lib/supabase`
+- Never use the singleton `supabase` client in Server Components
+
+**Query Patterns:**
+- Always specify exact columns in `.select()` - never use `select('*')`
+- Example: `.select("id, name, date, location, country, distance, type, description, image_url, latitude, longitude")`
+- Order results appropriately (e.g., `.order("date", { ascending: true })`)
+
+**Error Handling:**
+- Always destructure `{ data, error }` from Supabase queries
+- Handle errors gracefully with null coalescing: `const races = data ?? []`
+- Log errors but don't crash the app: `console.error("Failed to load races", error)`
+
+**Future: Authentication & RLS**
+- Plan for Supabase Auth integration
+- Design database schema with Row Level Security (RLS) in mind
+- Prepare for user-specific queries and policies
+
+### Database Schema
+
+**Race Table:**
+```typescript
+interface Race {
+  id: string | number
+  name: string
+  date: string // ISO 8601 format (YYYY-MM-DD)
+  location: string
+  country: string | null
+  distance: string | null
+  type: string | null
+  description: string | null
+  image_url: string | null
+  latitude: number | null
+  longitude: number | null
+}
+```
+
+**Data Standards:**
+- Dates: ISO 8601 format (`YYYY-MM-DD`)
+- Coordinates: `latitude` and `longitude` as `number | null`
+- Always validate data before insertion
+
+### API Routes
+
+**Route Handlers:**
+- Use Next.js Route Handlers in `src/app/api/`
+- Export `GET`, `POST`, `PUT`, `DELETE` functions as needed
+- Return `NextResponse.json()` for JSON responses
+
+**Error Handling:**
+- Wrap handlers in try/catch blocks
+- Return 500 status for errors: `NextResponse.json({ error: message }, { status: 500 })`
+- Provide descriptive error messages for debugging
+
+**Example Pattern:**
+```typescript
+export async function GET() {
+  try {
+    const { data, error } = await supabase.from('races').select('*')
+    if (error) throw error
+    return NextResponse.json({ data })
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+}
+```
+
+### Scripts & External APIs
+
+**Script Organization:**
+- Keep utility scripts in `scripts/` directory
+- Use TypeScript for all scripts
+- Load environment variables with `dotenv` from `.env.local`
+
+**Web Scraping:**
+- Validate scraped data with Zod schemas before insertion
+- Filter incomplete data:
+  - Require: `name`, `location`, `date`
+  - Participants threshold: >= 10,000 for inclusion
+- Normalize data formats (dates, participant counts, etc.)
+
+**Rate Limiting:**
+- Always add delays between external API calls
+- Geocoding: 1000ms delay between requests (OpenStreetMap Nominatim)
+- Respect API rate limits and terms of service
+
+**Error Recovery:**
+- Graceful fallback when geocoding fails (set `latitude`/`longitude` to `null`)
+- Don't crash scripts on single item failures
+- Log errors but continue processing remaining items
+
+### Data Quality
+
+**Date Handling:**
+- Normalize dates to ISO 8601 format (`YYYY-MM-DD`)
+- Use `formatDate()` helper for display formatting
+- Validate dates before insertion (check for NaN)
+
+**Geocoding:**
+- Geocode locations during scraping, not on-demand
+- Store both raw location string and coordinates
+- Handle missing coordinates gracefully in UI (filter from map, still show in list)
+
+**Participant Counts:**
+- Parse participant strings (remove commas, handle various formats)
+- Use as quality signal (higher participant races are more notable)
+
+---
+
+## Future Considerations
+
+### Planned Features
+
+**Authentication:**
+- Supabase Auth integration
+- User accounts and profiles
+- Protected routes and personalized features
+
+**User-Specific Data:**
+- `user_saved_races` table (many-to-many relationship)
+- `user_alerts` table (registration reminders, price changes)
+- `user_race_completions` table (track races completed)
+
+**Enhanced Filtering:**
+- URL state management with `nuqs` for shareable filters
+- More filter options: date range, location radius, elevation, climate
+- Search functionality (fuzzy search on race names, locations)
+
+**Map Improvements:**
+- Clustering for large datasets
+- Viewport-based filtering
+- Click handlers for race selection
+- Custom markers with race type indicators
+
+---
+
+## Notes
+
+- Keep the codebase simple and maintainable
+- Prioritize user experience and performance
+- Build incrementally - ship features quickly, then iterate
+- Document complex logic and non-obvious patterns
