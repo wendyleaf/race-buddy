@@ -1,7 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { FirecrawlAppV1 } from '@mendable/firecrawl-js'
 import dotenv from 'dotenv'
-import { z } from 'zod'
 
 dotenv.config({ path: '.env.local' })
 
@@ -18,18 +17,19 @@ const firecrawl = new FirecrawlAppV1({ apiKey: firecrawlApiKey })
 
 interface ExtractedRace {
   name?: string
-  date?: string
   location?: string
+  country?: string
+  distance?: string
   participants?: number | string
-  latitude?: number
-  longitude?: number
-  websiteUrl?: string
+  type?: string
 }
 
 interface RaceRow {
   name: string
   date: string
   location: string
+  country: string | null
+  distance: string | null
   latitude: number | null
   longitude: number | null
 }
@@ -85,71 +85,123 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-async function fetchRaces() {
-  const url = 'https://findmymarathon.com/calendar.php'
-  const schema = z.object({
-    races: z.array(
-      z.object({
-        name: z.string(),
-        date: z.string(),
-        location: z.string(),
-        participants: z.number().optional(),
-        latitude: z.number().optional(),
-        longitude: z.number().optional(),
-        websiteUrl: z.string().optional(),
-      })
-    ),
-  })
-
-  const response = (await firecrawl.scrapeUrl(url, {
-    formats: ['markdown'],
-    extract: {
-      schema: schema as unknown as never,
-      prompt:
-        'Extract race calendar rows. Include name, date, location, and participants count. If latitude/longitude is shown on the page, include those.',
-    },
-  })) as unknown as {
-    success: boolean
-    data?: { extract?: { races?: ExtractedRace[] } }
-    error?: string
+function parseMarkdownTable(markdown: string): ExtractedRace[] {
+  const races: ExtractedRace[] = []
+  
+  // Find the main table in the markdown
+  const lines = markdown.split('\n')
+  let inTable = false
+  let headerFound = false
+  
+  for (const line of lines) {
+    // Skip until we find a table with race data
+    if (line.includes('|') && line.includes('Event')) {
+      headerFound = true
+      inTable = true
+      continue
+    }
+    
+    // Skip separator line
+    if (line.includes('|---') || line.includes('| ---')) {
+      continue
+    }
+    
+    // Parse table rows
+    if (inTable && line.includes('|')) {
+      // Empty line or end of table
+      if (line.trim() === '' || !line.includes('|')) {
+        break
+      }
+      
+      // Split by pipes and clean up
+      const columns = line.split('|')
+        .map(col => col.trim())
+        .filter(col => col !== '')
+      
+      // Wikipedia table typically has: Event | Location | Country | Distance | Participants | etc
+      if (columns.length >= 4) {
+        const name = columns[0]?.replace(/\[.*?\]/g, '').trim() // Remove markdown links
+        const location = columns[1]?.replace(/\[.*?\]/g, '').trim()
+        const country = columns[2]?.replace(/\[.*?\]/g, '').trim()
+        const distance = columns[3]?.replace(/\[.*?\]/g, '').trim()
+        const participantsRaw = columns[4]?.replace(/\[.*?\]/g, '').trim()
+        
+        if (name && location) {
+          races.push({
+            name,
+            location,
+            country: country || undefined,
+            distance: distance || undefined,
+            participants: participantsRaw || undefined,
+          })
+        }
+      }
+    }
   }
+  
+  return races
+}
+
+async function fetchRaces() {
+  const url = 'https://en.wikipedia.org/wiki/List_of_largest_running_events'
+
+  const response = await firecrawl.scrapeUrl(url, {
+    formats: ['markdown'],
+  })
 
   if (!response.success) {
     throw new Error(`Firecrawl error: ${response.error}`)
   }
 
-  const extracted = (response.data as { extract?: { races?: ExtractedRace[] } })
-    ?.extract
-
-  return extracted?.races ?? []
+  const markdown = response.markdown || ''
+  console.log('Markdown length:', markdown.length)
+  console.log('First 500 chars:', markdown.substring(0, 500))
+  
+  const races = parseMarkdownTable(markdown)
+  console.log(`Parsed ${races.length} races from markdown`)
+  
+  if (races.length > 0) {
+    console.log('First race sample:', JSON.stringify(races[0], null, 2))
+  }
+  
+  return races
 }
 
 async function buildRows(races: ExtractedRace[]) {
   const rows: RaceRow[] = []
 
   for (const race of races) {
+    console.log('Processing race:', JSON.stringify(race, null, 2))
+    
     const name = race.name?.trim()
     const location = race.location?.trim()
-    const date = formatDate(race.date)
+    const country = race.country?.trim() || null
+    const distance = race.distance?.trim() || null
     const participants = parseParticipants(race.participants)
 
-    if (!name || !location || !date) continue
-    if (participants < 10000) continue
-
-    let latitude = typeof race.latitude === 'number' ? race.latitude : null
-    let longitude = typeof race.longitude === 'number' ? race.longitude : null
-
-    if (latitude === null || longitude === null) {
-      const geocode = await geocodeLocation(location)
-      latitude = geocode.latitude
-      longitude = geocode.longitude
-      await sleep(1000)
+    console.log(`Processing: ${name} in ${location}, ${country || 'no country'} - ${participants} participants`)
+    
+    if (!name || !location) {
+      console.log('SKIPPED: Missing name or location')
+      continue
     }
+
+    // Use placeholder date for now (Phase 1)
+    const date = '2026-06-01'
+
+    // Geocode using city, country format for better accuracy
+    const geocodeQuery = country ? `${location}, ${country}` : location
+    const geocode = await geocodeLocation(geocodeQuery)
+    const latitude = geocode.latitude
+    const longitude = geocode.longitude
+    await sleep(1000)
 
     rows.push({
       name,
       date,
       location,
+      country,
+      distance,
       latitude,
       longitude,
     })
@@ -176,7 +228,8 @@ async function insertRaces(rows: RaceRow[]) {
 async function run() {
   console.log('Scraping race calendar...')
   const races = await fetchRaces()
-  const rows = await buildRows(races)
+  console.log(`Fetched ${races.length} races from Wikipedia`)
+  const rows = await buildRows(races) ?? []
   await insertRaces(rows)
 }
 
