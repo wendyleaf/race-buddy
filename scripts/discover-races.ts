@@ -27,6 +27,7 @@ interface RaceRow {
   latitude: number | null
   longitude: number | null
   image_url: string | null
+  description: string | null
 }
 
 interface GeocodeResult {
@@ -41,6 +42,8 @@ interface ParsedRaceData {
   location: string
   distances?: string[]
   image_url?: string
+  certification?: string | null
+  registration_status?: 'open' | 'upcoming' | 'closed' | 'unknown'
 }
 
 function formatDate(input?: string) {
@@ -87,13 +90,32 @@ async function extractRaceDataWithOpenAI(
   text: string
 ): Promise<ParsedRaceData | null> {
   try {
-    const systemPrompt = `You are a data cleaner. Extract the following JSON object from this website text: { name, date (ISO), location, distances (array), image_url }. If you can't find a date, return null.`
+    const systemPrompt = `You are a race data extractor. From the website text, extract a JSON object for a MARATHON race only.
+
+Rules:
+- Return null (as JSON: {"skip": true}) if: the page is not about a marathon (26.2 miles / 42.195 km) as a primary distance, the race date is before 2026-05-04, or no date is found.
+- "distances" must include "Marathon" (26.2mi). If the page only covers 5K, 10K, half marathon, etc., skip it.
+- "certification" should be the certifying body if mentioned (e.g. "USATF", "World Athletics", "AIMS", "Athletics Canada", or the relevant national governing body). Set to null if not mentioned.
+- "registration_status" must be one of: "open" (registration currently accepting entries), "upcoming" (announced but not yet open), "closed" (registration closed or race already occurred), "unknown".
+- "date" must be an ISO date string (YYYY-MM-DD) for 2026 or later. If the page only shows a past edition (e.g. 2025 results), set registration_status to "closed".
+
+Return this JSON shape:
+{
+  "skip": false,
+  "name": string,
+  "date": string (ISO),
+  "location": string (City, State/Country),
+  "distances": string[],
+  "image_url": string | null,
+  "certification": string | null,
+  "registration_status": "open" | "upcoming" | "closed" | "unknown"
+}`
 
     const response = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: text.substring(0, 10000) }, // Limit text to 10k chars
+        { role: 'user', content: text },
       ],
       response_format: { type: 'json_object' },
       temperature: 0,
@@ -107,8 +129,7 @@ async function extractRaceDataWithOpenAI(
 
     const extracted = JSON.parse(content)
 
-    // Filter out if no date found
-    if (!extracted.date) {
+    if (extracted.skip || !extracted.date) {
       return null
     }
 
@@ -117,7 +138,9 @@ async function extractRaceDataWithOpenAI(
       date: extracted.date,
       location: extracted.location,
       distances: extracted.distances,
-      image_url: extracted.image_url,
+      image_url: extracted.image_url ?? null,
+      certification: extracted.certification ?? null,
+      registration_status: extracted.registration_status ?? 'unknown',
       url,
     }
   } catch (error) {
@@ -129,16 +152,37 @@ async function extractRaceDataWithOpenAI(
 async function discoverRaces() {
   console.log('Discovering races with Exa...')
 
-  const response = await exa.searchAndContents('official marathon race website 2026', {
-    numResults: 10,
-    text: true,
-  })
+  const queries = [
+    'USATF certified marathon 2026 official race registration',
+    'certified road marathon race 2026 official site registration open',
+  ]
 
-  console.log(`Found ${response.results.length} results`)
+  const seenUrls = new Set<string>()
+  const allResults: Array<{ url: string; title?: string | null; text?: string | null }> = []
+
+  for (const query of queries) {
+    console.log(`\nSearching: "${query}"`)
+    const response = await exa.searchAndContents(query, {
+      type: 'auto',
+      numResults: 10,
+      contents: {
+        text: { maxCharacters: 10000 },
+      },
+    })
+    console.log(`  Found ${response.results.length} results`)
+    for (const result of response.results) {
+      if (!seenUrls.has(result.url)) {
+        seenUrls.add(result.url)
+        allResults.push(result)
+      }
+    }
+  }
+
+  console.log(`\nTotal unique results: ${allResults.length}`)
 
   const parsedRaces: ParsedRaceData[] = []
 
-  for (const result of response.results) {
+  for (const result of allResults) {
     if (!result.text) {
       console.log(`Skipping ${result.url} - no text content`)
       continue
@@ -152,9 +196,13 @@ async function discoverRaces() {
       result.text
     )
 
-    // Filter out null results (no date found)
     if (!extracted) {
-      console.log(`Skipping ${result.url} - no date found or extraction failed`)
+      console.log(`Skipping ${result.url} - not a certified marathon, no date, or extraction failed`)
+      continue
+    }
+
+    if (extracted.registration_status === 'closed') {
+      console.log(`Pending (registration closed): ${extracted.name} — skipping insertion`)
       continue
     }
 
@@ -205,11 +253,12 @@ async function buildRows(races: ParsedRaceData[]) {
       name,
       date: dateStr,
       location,
-      country: null, // OpenAI extracts location as a single field
+      country: null,
       distance,
       latitude,
       longitude,
       image_url: race.image_url || null,
+      description: race.certification ? `Certified by ${race.certification}` : null,
     })
   }
 
