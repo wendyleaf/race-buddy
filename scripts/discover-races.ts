@@ -271,13 +271,16 @@ async function insertRaces(rows: RaceRow[]) {
     return
   }
 
-  const { data, error } = await supabase.from('races').insert(rows).select()
+  const { data, error } = await supabase
+    .from('races')
+    .upsert(rows, { onConflict: 'name,date', ignoreDuplicates: true })
+    .select()
 
   if (error) {
     throw error
   }
 
-  console.log(`\nInserted ${data.length} races.`)
+  console.log(`\nInserted ${data.length} new races (duplicates skipped).`)
 }
 
 async function run() {
