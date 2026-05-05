@@ -69,6 +69,7 @@ Rules:
 - Date must be on or after ${today}.
 ${country ? `- Race must be in ${country}.` : ""}
 ${monthFilter ? `- Race date must be in ${monthLabel(monthFilter)}.` : ""}
+- "name" and "location" must be in English. If the source page is in another language (e.g. Japanese, Spanish, German), translate them to English. Use the commonly-known English name if one exists (e.g. "Tokyo Marathon" not "東京マラソン"). Otherwise, transliterate proper nouns and translate descriptive words.
 
 Return JSON shape:
 {

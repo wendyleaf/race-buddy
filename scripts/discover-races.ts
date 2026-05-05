@@ -98,6 +98,7 @@ Rules:
 - "certification" should be the certifying body if mentioned (e.g. "USATF", "World Athletics", "AIMS", "Athletics Canada", or the relevant national governing body). Set to null if not mentioned.
 - "registration_status" must be one of: "open" (registration currently accepting entries), "upcoming" (announced but not yet open), "closed" (registration closed or race already occurred), "unknown".
 - "date" must be an ISO date string (YYYY-MM-DD) for 2026 or later. If the page only shows a past edition (e.g. 2025 results), set registration_status to "closed".
+- "name" and "location" must be in English. If the source page is in another language, translate them. Use the commonly-known English name if one exists (e.g. "Tokyo Marathon" not "東京マラソン"); otherwise transliterate proper nouns and translate descriptive words.
 
 Return this JSON shape:
 {
