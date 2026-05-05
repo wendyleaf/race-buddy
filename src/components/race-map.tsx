@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import Map, { Marker, Popup, MapRef } from "react-map-gl/mapbox"
+import "mapbox-gl/dist/mapbox-gl.css"
 import { DiscoverBar, AddedRace } from "@/components/discover-bar"
 import { RaceCard } from "@/components/race-card"
 
