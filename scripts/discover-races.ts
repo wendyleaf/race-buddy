@@ -265,15 +265,47 @@ async function buildRows(races: ParsedRaceData[]) {
   return rows
 }
 
+function normalizeName(name: string) {
+  return name
+    .toLowerCase()
+    .replace(/^the\s+/, '')           // strip leading "the"
+    .replace(/\s+presented by .+$/, '') // strip "presented by ..."
+    .replace(/\s+sponsored by .+$/, '') // strip "sponsored by ..."
+    .replace(/\d{4}/, '')             // strip year
+    .replace(/[^a-z0-9]/g, ' ')       // normalize punctuation
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 async function insertRaces(rows: RaceRow[]) {
   if (!rows.length) {
     console.log('No races to insert.')
     return
   }
 
+  // Fetch existing races and skip near-duplicates by normalized name + same month
+  const { data: existing } = await supabase.from('races').select('name, date')
+  const existingNormalized = (existing ?? []).map((r) => ({
+    name: normalizeName(r.name),
+    month: r.date?.slice(0, 7), // YYYY-MM
+  }))
+
+  const deduped = rows.filter((row) => {
+    const norm = normalizeName(row.name)
+    const month = row.date.slice(0, 7)
+    const isDupe = existingNormalized.some((e) => e.name === norm && e.month === month)
+    if (isDupe) console.log(`  Skipping near-duplicate: ${row.name}`)
+    return !isDupe
+  })
+
+  if (!deduped.length) {
+    console.log('All races already exist in DB.')
+    return
+  }
+
   const { data, error } = await supabase
     .from('races')
-    .upsert(rows, { onConflict: 'name,date', ignoreDuplicates: true })
+    .upsert(deduped, { onConflict: 'name,date', ignoreDuplicates: true })
     .select()
 
   if (error) {
