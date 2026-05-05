@@ -84,7 +84,7 @@ export function RaceMap({ races, focusedLocation, onRaceAdded }: RaceMapProps) {
               key={race.id}
               latitude={race.latitude as number}
               longitude={race.longitude as number}
-              anchor="bottom"
+              anchor="center"
               onClick={(event) => {
                 event.originalEvent.stopPropagation()
                 setSelectedRace(race)
@@ -93,19 +93,17 @@ export function RaceMap({ races, focusedLocation, onRaceAdded }: RaceMapProps) {
               <div
                 onMouseEnter={() => setHoveredId(race.id)}
                 onMouseLeave={() => setHoveredId(null)}
-                className="relative cursor-pointer"
+                className="relative flex h-5 w-5 cursor-pointer items-center justify-center"
                 aria-label={race.name}
               >
                 <span
-                  className={`absolute inset-0 rounded-full bg-red-500 ${
+                  className={`absolute h-5 w-5 rounded-full bg-red-500 ${
                     isSelected || isHovered ? "animate-ping opacity-60" : "opacity-0"
                   }`}
                 />
                 <span
-                  className={`relative block rounded-full border-2 border-white shadow-md transition-all ${
-                    isSelected || isHovered
-                      ? "h-5 w-5 bg-red-600"
-                      : "h-4 w-4 bg-red-500"
+                  className={`relative block rounded-full border-2 border-white shadow-md transition-colors ${
+                    isSelected || isHovered ? "h-4 w-4 bg-red-600" : "h-3 w-3 bg-red-500"
                   }`}
                 />
               </div>
