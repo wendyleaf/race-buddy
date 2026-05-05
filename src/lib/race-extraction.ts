@@ -61,10 +61,50 @@ export function normalizeName(name: string) {
     .trim()
 }
 
+const US_STATES = new Set([
+  "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA",
+  "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD",
+  "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ",
+  "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC",
+  "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY", "DC",
+  "Alabama", "Alaska", "Arizona", "Arkansas", "California", "Colorado",
+  "Connecticut", "Delaware", "Florida", "Georgia", "Hawaii", "Idaho",
+  "Illinois", "Indiana", "Iowa", "Kansas", "Kentucky", "Louisiana",
+  "Maine", "Maryland", "Massachusetts", "Michigan", "Minnesota",
+  "Mississippi", "Missouri", "Montana", "Nebraska", "Nevada",
+  "New Hampshire", "New Jersey", "New Mexico", "New York",
+  "North Carolina", "North Dakota", "Ohio", "Oklahoma", "Oregon",
+  "Pennsylvania", "Rhode Island", "South Carolina", "South Dakota",
+  "Tennessee", "Texas", "Utah", "Vermont", "Virginia", "Washington",
+  "West Virginia", "Wisconsin", "Wyoming",
+])
+
+const CITY_STATES = new Set(["Singapore", "Hong Kong", "Monaco", "Vatican City"])
+
+const COUNTRY_ALIASES: Record<string, string> = {
+  US: "USA",
+  "U.S.": "USA",
+  "U.S.A.": "USA",
+  "United States": "USA",
+  "United States of America": "USA",
+  UK: "UK",
+  "U.K.": "UK",
+  "United Kingdom": "UK",
+}
+
 export function parseCountry(location: string): string | null {
-  const parts = location.split(",").map((p) => p.trim())
-  if (parts.length < 2) return null
-  return parts[parts.length - 1] || null
+  const parts = location.split(",").map((p) => p.trim()).filter(Boolean)
+  if (parts.length === 0) return null
+
+  // Single-segment locations: only confident if it's a known city-state
+  if (parts.length === 1) {
+    return CITY_STATES.has(parts[0]) ? parts[0] : null
+  }
+
+  const last = parts[parts.length - 1]
+  if (US_STATES.has(last)) return "USA"
+  if (CITY_STATES.has(last)) return last
+  return COUNTRY_ALIASES[last] ?? last
 }
 
 function buildPrompt(constraints: ExtractionConstraints) {
