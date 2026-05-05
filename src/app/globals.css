@@ -126,3 +126,25 @@
     overflow: hidden;
   }
 }
+
+.race-map-popup .mapboxgl-popup-content {
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+}
+
+.race-map-popup .mapboxgl-popup-tip {
+  display: none;
+}
+
+.race-map-popup .mapboxgl-popup-close-button {
+  font-size: 18px;
+  padding: 4px 8px;
+  color: white;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 9999px;
+  top: 6px;
+  right: 6px;
+  z-index: 10;
+}
