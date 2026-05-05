@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import Map, { Marker, Popup, MapRef } from "react-map-gl/mapbox"
+import { DiscoverBar, AddedRace } from "@/components/discover-bar"
 
 const INITIAL_VIEW_STATE = {
   latitude: 40.7128,
@@ -13,7 +14,7 @@ const INITIAL_VIEW_STATE = {
 
 const MAP_STYLE = { width: "100%", height: "100%" }
 
-export function RaceMap({ races, focusedLocation }: RaceMapProps) {
+export function RaceMap({ races, focusedLocation, onRaceAdded }: RaceMapProps) {
   const [selectedRace, setSelectedRace] = useState<Race | null>(null)
   const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
   const mapRef = useRef<MapRef>(null)
@@ -29,7 +30,8 @@ export function RaceMap({ races, focusedLocation }: RaceMapProps) {
   }, [focusedLocation])
 
   return (
-    <div className="h-full w-full">
+    <div className="relative h-full w-full">
+      <DiscoverBar onRaceAdded={onRaceAdded} />
       <Map
         ref={mapRef}
         initialViewState={INITIAL_VIEW_STATE}
@@ -79,6 +81,7 @@ export function RaceMap({ races, focusedLocation }: RaceMapProps) {
 interface RaceMapProps {
   races: Race[]
   focusedLocation: { latitude: number; longitude: number } | null
+  onRaceAdded: (race: AddedRace) => void
 }
 
 interface Race {

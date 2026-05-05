@@ -39,6 +39,13 @@ export function RaceDashboard({ initialRaces }: RaceDashboardProps) {
     }
   }
 
+  function handleRaceAdded(race: Race) {
+    setRaces((prev) => [...prev, race])
+    if (race.latitude && race.longitude) {
+      setFocusedLocation({ latitude: race.latitude, longitude: race.longitude })
+    }
+  }
+
   return (
     <div className="flex h-screen flex-col bg-zinc-50 md:flex-row">
       <div className="w-full border-b bg-zinc-50 md:w-1/2 md:border-b-0 md:border-r lg:w-[40%]">
@@ -68,7 +75,11 @@ export function RaceDashboard({ initialRaces }: RaceDashboardProps) {
         </div>
       </div>
       <div className="hidden flex-1 md:block">
-        <RaceMap races={filteredRaces} focusedLocation={focusedLocation} />
+        <RaceMap
+          races={filteredRaces}
+          focusedLocation={focusedLocation}
+          onRaceAdded={handleRaceAdded}
+        />
       </div>
     </div>
   )
