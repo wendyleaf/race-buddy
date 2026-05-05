@@ -127,6 +127,27 @@
   }
 }
 
+.race-marker:hover .race-marker-ping,
+.race-marker[data-selected] .race-marker-ping {
+  opacity: 0.6;
+  animation: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+.race-marker:hover .race-marker-dot,
+.race-marker[data-selected] .race-marker-dot {
+  width: 1rem;
+  height: 1rem;
+  background-color: rgb(220 38 38);
+}
+
+@keyframes ping {
+  75%,
+  100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
 .race-map-popup .mapboxgl-popup-content {
   padding: 0;
   background: transparent;

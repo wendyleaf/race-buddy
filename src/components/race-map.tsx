@@ -3,8 +3,9 @@
 import { useState, useEffect, useRef } from "react"
 import Map, { Marker, Popup, MapRef } from "react-map-gl/mapbox"
 import "mapbox-gl/dist/mapbox-gl.css"
-import { DiscoverBar, AddedRace } from "@/components/discover-bar"
+import { DiscoverBar } from "@/components/discover-bar"
 import { RaceCard } from "@/components/race-card"
+import { Race } from "@/types/race"
 
 const INITIAL_VIEW_STATE = {
   latitude: 20,
@@ -16,9 +17,14 @@ const INITIAL_VIEW_STATE = {
 
 const MAP_STYLE = { width: "100%", height: "100%" }
 
+interface RaceMapProps {
+  races: Race[]
+  focusedLocation: { latitude: number; longitude: number } | null
+  onRaceAdded: (race: Race) => void
+}
+
 export function RaceMap({ races, focusedLocation, onRaceAdded }: RaceMapProps) {
   const [selectedRace, setSelectedRace] = useState<Race | null>(null)
-  const [hoveredId, setHoveredId] = useState<string | number | null>(null)
   const [mapLoaded, setMapLoaded] = useState(false)
   const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
   const mapRef = useRef<MapRef>(null)
@@ -79,7 +85,6 @@ export function RaceMap({ races, focusedLocation, onRaceAdded }: RaceMapProps) {
       >
         {racesWithCoords.map((race) => {
           const isSelected = selectedRace?.id === race.id
-          const isHovered = hoveredId === race.id
           return (
             <Marker
               key={race.id}
@@ -92,21 +97,12 @@ export function RaceMap({ races, focusedLocation, onRaceAdded }: RaceMapProps) {
               }}
             >
               <div
-                onMouseEnter={() => setHoveredId(race.id)}
-                onMouseLeave={() => setHoveredId(null)}
-                className="relative flex h-5 w-5 cursor-pointer items-center justify-center"
+                className="race-marker group relative flex h-5 w-5 cursor-pointer items-center justify-center"
                 aria-label={race.name}
+                data-selected={isSelected || undefined}
               >
-                <span
-                  className={`absolute h-5 w-5 rounded-full bg-red-500 ${
-                    isSelected || isHovered ? "animate-ping opacity-60" : "opacity-0"
-                  }`}
-                />
-                <span
-                  className={`relative block rounded-full border-2 border-white shadow-md transition-colors ${
-                    isSelected || isHovered ? "h-4 w-4 bg-red-600" : "h-3 w-3 bg-red-500"
-                  }`}
-                />
+                <span className="race-marker-ping absolute h-5 w-5 rounded-full bg-red-500 opacity-0" />
+                <span className="race-marker-dot relative block h-3 w-3 rounded-full border-2 border-white bg-red-500 shadow-md transition-colors" />
               </div>
             </Marker>
           )
@@ -130,24 +126,4 @@ export function RaceMap({ races, focusedLocation, onRaceAdded }: RaceMapProps) {
       </Map>
     </div>
   )
-}
-
-interface RaceMapProps {
-  races: Race[]
-  focusedLocation: { latitude: number; longitude: number } | null
-  onRaceAdded: (race: AddedRace) => void
-}
-
-interface Race {
-  id: string | number
-  name: string
-  date: string
-  location: string
-  country: string | null
-  distance: string | null
-  type: string | null
-  description: string | null
-  image_url: string | null
-  latitude: number | null
-  longitude: number | null
 }

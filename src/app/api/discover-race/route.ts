@@ -1,55 +1,30 @@
 import { NextResponse } from "next/server"
 import Exa from "exa-js"
 import OpenAI from "openai"
+import {
+  extractRaceFromText,
+  geocodeLocation,
+  monthLabel,
+} from "@/lib/race-extraction"
+import { DiscoveredRace } from "@/types/race"
 
 const exa = new Exa(process.env.EXA_API_KEY!)
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! })
 
 interface DiscoverRequest {
   country?: string
-  month?: string // YYYY-MM
-}
-
-interface DiscoveredRace {
-  name: string
-  date: string
-  location: string
-  distance: string
-  certification: string | null
-  image_url: string | null
-  latitude: number | null
-  longitude: number | null
-  source_url: string
-}
-
-async function geocode(location: string) {
-  const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(location)}`
-  const res = await fetch(url, {
-    headers: { "User-Agent": "race-buddy/1.0" },
-  })
-  if (!res.ok) return { latitude: null, longitude: null }
-  const results = (await res.json()) as Array<{ lat?: string; lon?: string }>
-  const first = results[0]
-  if (!first?.lat || !first?.lon) return { latitude: null, longitude: null }
-  return { latitude: Number(first.lat), longitude: Number(first.lon) }
-}
-
-function monthLabel(yyyymm?: string) {
-  if (!yyyymm) return ""
-  const [y, m] = yyyymm.split("-")
-  const date = new Date(Number(y), Number(m) - 1, 1)
-  return date.toLocaleString("en-US", { month: "long", year: "numeric" })
+  month?: string
 }
 
 export async function POST(req: Request) {
   try {
     const body = (await req.json()) as DiscoverRequest
     const country = body.country?.trim() || ""
-    const monthStr = body.month?.trim() || ""
+    const month = body.month?.trim() || ""
 
     const queryParts = ["certified marathon race"]
     if (country) queryParts.push(country)
-    if (monthStr) queryParts.push(monthLabel(monthStr))
+    if (month) queryParts.push(monthLabel(month))
     queryParts.push("official site registration")
     const query = queryParts.join(" ")
 
@@ -59,65 +34,53 @@ export async function POST(req: Request) {
       contents: { text: { maxCharacters: 10000 } },
     })
 
-    const monthFilter = monthStr || ""
-    const today = new Date().toISOString().slice(0, 10)
+    const results = search.results as Array<{
+      url: string
+      title?: string | null
+      text?: string | null
+    }>
 
-    const systemPrompt = `You are a race data extractor. From the website text, return JSON for a single MARATHON race.
+    const candidates = results.filter((r) => r.text)
 
-Rules:
-- Return {"skip": true} if: not a marathon (26.2mi/42.195km), no clear date, or registration is closed/race already occurred.
-- Date must be on or after ${today}.
-${country ? `- Race must be in ${country}.` : ""}
-${monthFilter ? `- Race date must be in ${monthLabel(monthFilter)}.` : ""}
-- "name" and "location" must be in English. If the source page is in another language (e.g. Japanese, Spanish, German), translate them to English. Use the commonly-known English name if one exists (e.g. "Tokyo Marathon" not "東京マラソン"). Otherwise, transliterate proper nouns and translate descriptive words.
-
-Return JSON shape:
-{
-  "skip": boolean,
-  "name": string,
-  "date": string (YYYY-MM-DD),
-  "location": string ("City, State/Country"),
-  "certification": string | null,
-  "image_url": string | null
-}`
-
-    for (const result of search.results as Array<{ url: string; title?: string | null; text?: string | null }>) {
-      if (!result.text) continue
-
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: result.text },
-        ],
-        response_format: { type: "json_object" },
-        temperature: 0,
+    // Run extractions in parallel — first valid match wins
+    const extractions = await Promise.all(
+      candidates.map(async (r) => {
+        try {
+          const extracted = await extractRaceFromText(openai, r.text!, {
+            country,
+            month,
+          })
+          if (!extracted || extracted.registration_status === "closed") return null
+          return { result: r, extracted }
+        } catch {
+          return null
+        }
       })
-      const content = completion.choices[0]?.message?.content
-      if (!content) continue
-      const parsed = JSON.parse(content)
-      if (parsed.skip || !parsed.date || !parsed.name || !parsed.location) continue
+    )
 
-      const geo = await geocode(parsed.location)
-
-      const race: DiscoveredRace = {
-        name: parsed.name,
-        date: parsed.date,
-        location: parsed.location,
-        distance: "Marathon",
-        certification: parsed.certification ?? null,
-        image_url: parsed.image_url ?? null,
-        latitude: geo.latitude,
-        longitude: geo.longitude,
-        source_url: result.url,
-      }
-      return NextResponse.json({ race })
+    const match = extractions.find((e) => e !== null)
+    if (!match) {
+      return NextResponse.json(
+        { error: "No matching marathon found. Try different criteria." },
+        { status: 404 }
+      )
     }
 
-    return NextResponse.json(
-      { error: "No matching marathon found. Try different criteria." },
-      { status: 404 }
-    )
+    const geo = await geocodeLocation(match.extracted.location)
+
+    const race: DiscoveredRace = {
+      name: match.extracted.name,
+      date: match.extracted.date,
+      location: match.extracted.location,
+      country: match.extracted.country,
+      distance: "Marathon",
+      certification: match.extracted.certification,
+      image_url: match.extracted.image_url,
+      latitude: geo.latitude,
+      longitude: geo.longitude,
+      source_url: match.result.url,
+    }
+    return NextResponse.json({ race })
   } catch (error) {
     console.error("Discover race failed:", error)
     return NextResponse.json({ error: "Discovery failed" }, { status: 500 })

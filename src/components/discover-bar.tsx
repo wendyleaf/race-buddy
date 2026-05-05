@@ -2,35 +2,10 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-
-export interface DiscoveredRace {
-  name: string
-  date: string
-  location: string
-  distance: string
-  certification: string | null
-  image_url: string | null
-  latitude: number | null
-  longitude: number | null
-  source_url: string
-}
+import { DiscoveredRace, Race } from "@/types/race"
 
 interface DiscoverBarProps {
-  onRaceAdded: (race: AddedRace) => void
-}
-
-export interface AddedRace {
-  id: string | number
-  name: string
-  date: string
-  location: string
-  country: string | null
-  distance: string | null
-  type: string | null
-  description: string | null
-  image_url: string | null
-  latitude: number | null
-  longitude: number | null
+  onRaceAdded: (race: Race) => void
 }
 
 export function DiscoverBar({ onRaceAdded }: DiscoverBarProps) {
@@ -76,6 +51,7 @@ export function DiscoverBar({ onRaceAdded }: DiscoverBarProps) {
           name: result.name,
           date: result.date,
           location: result.location,
+          country: result.country,
           distance: result.distance,
           certification: result.certification,
           image_url: result.image_url,

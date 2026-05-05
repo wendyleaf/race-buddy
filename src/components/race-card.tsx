@@ -1,23 +1,28 @@
+import Image from "next/image"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardFooter } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
+import { Race } from "@/types/race"
 
-export function RaceCard({ race }: RaceCardProps) {
+const FALLBACK_IMAGE = "/file.svg"
+
+export function RaceCard({ race }: { race: Race }) {
   const formattedDate = formatDate(race.date)
-  const imageUrl = race.image_url ?? "/file.svg"
+  const imageUrl = race.image_url ?? FALLBACK_IMAGE
   const badgeText = race.distance ?? "Race"
   const locationText = race.country
     ? `${race.location}, ${race.country}`
     : race.location
 
   return (
-    <Card className="overflow-hidden">
-      <div className="relative">
-        <img
+    <Card className="overflow-hidden transition-shadow hover:shadow-md">
+      <div className="relative h-44 w-full">
+        <Image
           src={imageUrl}
           alt={race.name}
-          className="h-44 w-full object-cover"
-          loading="lazy"
+          fill
+          className="object-cover"
+          sizes="(max-width: 768px) 100vw, 33vw"
+          unoptimized={imageUrl === FALLBACK_IMAGE}
         />
         <Badge className="absolute right-3 top-3">{badgeText}</Badge>
       </div>
@@ -26,9 +31,6 @@ export function RaceCard({ race }: RaceCardProps) {
         <p className="text-sm text-zinc-600">{formattedDate}</p>
         <p className="text-sm text-zinc-600">{locationText}</p>
       </CardContent>
-      <CardFooter>
-        <Button className="w-full">View Details</Button>
-      </CardFooter>
     </Card>
   )
 }
@@ -36,26 +38,9 @@ export function RaceCard({ race }: RaceCardProps) {
 function formatDate(dateString: string) {
   const parsed = new Date(dateString)
   if (Number.isNaN(parsed.getTime())) return dateString
-
   return new Intl.DateTimeFormat("en-US", {
     month: "short",
     day: "numeric",
     year: "numeric",
   }).format(parsed)
-}
-
-interface RaceCardProps {
-  race: Race
-}
-
-interface Race {
-  id: string | number
-  name: string
-  date: string
-  location: string
-  country: string | null
-  distance: string | null
-  type: string | null
-  description: string | null
-  image_url: string | null
 }

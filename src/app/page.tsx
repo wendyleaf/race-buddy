@@ -1,6 +1,8 @@
 import { RaceDashboard } from "@/components/race-dashboard"
 import { createServerClient } from "@/lib/supabase"
 
+export const revalidate = 60
+
 export default async function Home() {
   const supabase = createServerClient()
   const { data, error } = await supabase

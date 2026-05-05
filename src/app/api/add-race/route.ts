@@ -1,27 +1,17 @@
 import { NextResponse } from "next/server"
 import { createServerClient } from "@/lib/supabase"
+import { normalizeName, parseCountry } from "@/lib/race-extraction"
 
 interface AddRaceBody {
   name: string
   date: string
   location: string
+  country?: string | null
   distance: string
   certification?: string | null
   image_url?: string | null
   latitude?: number | null
   longitude?: number | null
-}
-
-function normalizeName(name: string) {
-  return name
-    .toLowerCase()
-    .replace(/^the\s+/, "")
-    .replace(/\s+presented by .+$/, "")
-    .replace(/\s+sponsored by .+$/, "")
-    .replace(/\d{4}/, "")
-    .replace(/[^a-z0-9]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
 }
 
 export async function POST(req: Request) {
@@ -33,12 +23,16 @@ export async function POST(req: Request) {
 
     const supabase = createServerClient()
 
-    const { data: existing } = await supabase.from("races").select("id, name, date")
+    // Narrow dedup query to the same month — much cheaper than a full table scan
+    const month = body.date.slice(0, 7)
+    const { data: candidates } = await supabase
+      .from("races")
+      .select("name, date")
+      .gte("date", `${month}-01`)
+      .lt("date", `${month}-32`)
+
     const targetNorm = normalizeName(body.name)
-    const targetMonth = body.date.slice(0, 7)
-    const dupe = (existing ?? []).find(
-      (r) => normalizeName(r.name) === targetNorm && r.date?.slice(0, 7) === targetMonth
-    )
+    const dupe = (candidates ?? []).find((r) => normalizeName(r.name) === targetNorm)
     if (dupe) {
       return NextResponse.json(
         { error: "This race is already in your list." },
@@ -50,7 +44,7 @@ export async function POST(req: Request) {
       name: body.name,
       date: body.date,
       location: body.location,
-      country: null,
+      country: body.country ?? parseCountry(body.location),
       distance: body.distance || "Marathon",
       latitude: body.latitude ?? null,
       longitude: body.longitude ?? null,
