@@ -13,6 +13,7 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! })
 
 interface DiscoverRequest {
   country?: string
+  state?: string
   month?: string
 }
 
@@ -20,10 +21,12 @@ export async function POST(req: Request) {
   try {
     const body = (await req.json()) as DiscoverRequest
     const country = body.country?.trim() || ""
+    const state = body.state?.trim() || ""
     const month = body.month?.trim() || ""
 
     const queryParts = ["certified marathon race"]
-    if (country) queryParts.push(country)
+    if (state) queryParts.push(state)
+    else if (country) queryParts.push(country)
     if (month) queryParts.push(monthLabel(month))
     queryParts.push("official site registration")
     const query = queryParts.join(" ")
@@ -48,6 +51,7 @@ export async function POST(req: Request) {
         try {
           const extracted = await extractRaceFromText(openai, r.text!, {
             country,
+            state,
             month,
           })
           if (!extracted || extracted.registration_status === "closed") return null
@@ -75,7 +79,6 @@ export async function POST(req: Request) {
       country: match.extracted.country,
       distance: "Marathon",
       certification: match.extracted.certification,
-      image_url: match.extracted.image_url,
       latitude: geo.latitude,
       longitude: geo.longitude,
       source_url: match.result.url,

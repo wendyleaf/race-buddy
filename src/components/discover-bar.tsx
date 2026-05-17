@@ -2,19 +2,38 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { DiscoveredRace, Race } from "@/types/race"
+
+const US_COUNTRY_NAME = "United States of America"
 
 interface DiscoverBarProps {
   onRaceAdded: (race: Race) => void
+  countries: { alpha2: string; name: string }[]
+  usSubdivisions: { code: string; name: string }[]
 }
 
-export function DiscoverBar({ onRaceAdded }: DiscoverBarProps) {
+export function DiscoverBar({ onRaceAdded, countries, usSubdivisions }: DiscoverBarProps) {
   const [country, setCountry] = useState("")
+  const [state, setState] = useState("")
   const [month, setMonth] = useState("")
   const [loading, setLoading] = useState(false)
   const [adding, setAdding] = useState(false)
   const [result, setResult] = useState<DiscoveredRace | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  const isUS = country === US_COUNTRY_NAME
+
+  function handleCountryChange(value: string) {
+    setCountry(value)
+    setState("")
+  }
 
   async function handleDiscover() {
     setLoading(true)
@@ -24,7 +43,7 @@ export function DiscoverBar({ onRaceAdded }: DiscoverBarProps) {
       const res = await fetch("/api/discover-race", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ country, month }),
+        body: JSON.stringify({ country, state: isUS ? state : undefined, month }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -54,7 +73,7 @@ export function DiscoverBar({ onRaceAdded }: DiscoverBarProps) {
           country: result.country,
           distance: result.distance,
           certification: result.certification,
-          image_url: result.image_url,
+          website_url: result.source_url,
           latitude: result.latitude,
           longitude: result.longitude,
         }),
@@ -81,20 +100,39 @@ export function DiscoverBar({ onRaceAdded }: DiscoverBarProps) {
   return (
     <div className="pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-col items-center px-4 pt-4">
       <div className="pointer-events-auto flex w-full max-w-2xl items-center gap-2 rounded-lg bg-white/95 p-3 shadow-lg backdrop-blur">
-        <input
-          type="text"
-          placeholder="Country (e.g. Japan)"
-          value={country}
-          onChange={(e) => setCountry(e.target.value)}
-          className="flex-1 rounded-md border border-zinc-200 px-3 py-1.5 text-sm outline-none focus:border-zinc-400"
-        />
+        <Select value={country} onValueChange={handleCountryChange}>
+          <SelectTrigger className="flex-1">
+            <SelectValue placeholder="Select a country" />
+          </SelectTrigger>
+          <SelectContent>
+            {countries.map((c) => (
+              <SelectItem key={c.alpha2} value={c.name}>
+                {c.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {isUS && (
+          <Select value={state} onValueChange={setState}>
+            <SelectTrigger className="w-[160px]">
+              <SelectValue placeholder="Any state" />
+            </SelectTrigger>
+            <SelectContent>
+              {usSubdivisions.map((s) => (
+                <SelectItem key={s.code} value={s.name}>
+                  {s.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
         <input
           type="month"
           value={month}
           onChange={(e) => setMonth(e.target.value)}
           className="rounded-md border border-zinc-200 px-3 py-1.5 text-sm outline-none focus:border-zinc-400"
         />
-        <Button onClick={handleDiscover} disabled={loading} size="sm">
+        <Button onClick={handleDiscover} disabled={loading || !country} size="sm">
           {loading ? "Searching..." : "Discover"}
         </Button>
       </div>

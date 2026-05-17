@@ -3,6 +3,8 @@ import OpenAI from "openai"
 export interface ExtractionConstraints {
   /** Restrict to races in this country (English name). */
   country?: string
+  /** Restrict to races in this US state (full name, e.g. "California"). */
+  state?: string
   /** Restrict to races in YYYY-MM. */
   month?: string
   /** Earliest acceptable race date (YYYY-MM-DD). Defaults to today. */
@@ -116,7 +118,8 @@ function buildPrompt(constraints: ExtractionConstraints) {
     `- Return {"skip": true} if: not a marathon (26.2mi/42.195km) as a primary distance, no clear date, or registration is closed/race already occurred.`,
     `- Date must be on or after ${minDate}.`,
   ]
-  if (constraints.country) lines.push(`- Race must be in ${constraints.country}.`)
+  if (constraints.state) lines.push(`- Race must be in ${constraints.state}, United States.`)
+  else if (constraints.country) lines.push(`- Race must be in ${constraints.country}.`)
   if (constraints.month) lines.push(`- Race date must be in ${monthLabel(constraints.month)}.`)
   lines.push(
     `- "name" and "location" must be in English. Translate from other languages where needed; use commonly-known English names (e.g. "Tokyo Marathon" not "東京マラソン").`,

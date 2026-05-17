@@ -5,9 +5,8 @@ export interface Race {
   location: string
   country: string | null
   distance: string | null
-  type: string | null
   description: string | null
-  image_url: string | null
+  website_url: string | null
   latitude: number | null
   longitude: number | null
 }
@@ -19,7 +18,6 @@ export interface DiscoveredRace {
   country: string | null
   distance: string
   certification: string | null
-  image_url: string | null
   latitude: number | null
   longitude: number | null
   source_url: string

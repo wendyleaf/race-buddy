@@ -9,7 +9,7 @@ interface AddRaceBody {
   country?: string | null
   distance: string
   certification?: string | null
-  image_url?: string | null
+  website_url?: string | null
   latitude?: number | null
   longitude?: number | null
 }
@@ -48,7 +48,7 @@ export async function POST(req: Request) {
       distance: body.distance || "Marathon",
       latitude: body.latitude ?? null,
       longitude: body.longitude ?? null,
-      image_url: body.image_url ?? null,
+      website_url: body.website_url ?? null,
       description: body.certification ? `Certified by ${body.certification}` : null,
     }
 

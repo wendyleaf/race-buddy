@@ -21,9 +21,11 @@ interface RaceMapProps {
   races: Race[]
   focusedLocation: { latitude: number; longitude: number } | null
   onRaceAdded: (race: Race) => void
+  countries: { alpha2: string; name: string }[]
+  usSubdivisions: { code: string; name: string }[]
 }
 
-export function RaceMap({ races, focusedLocation, onRaceAdded }: RaceMapProps) {
+export function RaceMap({ races, focusedLocation, onRaceAdded, countries, usSubdivisions }: RaceMapProps) {
   const [selectedRace, setSelectedRace] = useState<Race | null>(null)
   const [mapLoaded, setMapLoaded] = useState(false)
   const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN
@@ -69,7 +71,7 @@ export function RaceMap({ races, focusedLocation, onRaceAdded }: RaceMapProps) {
 
   return (
     <div className="relative h-full w-full">
-      <DiscoverBar onRaceAdded={onRaceAdded} />
+      <DiscoverBar onRaceAdded={onRaceAdded} countries={countries} usSubdivisions={usSubdivisions} />
       <Map
         ref={mapRef}
         initialViewState={INITIAL_VIEW_STATE}
