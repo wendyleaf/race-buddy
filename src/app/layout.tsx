@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Nav } from "@/components/nav";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -14,7 +15,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Race Buddy",
-  description: "Discover and track certified marathons around the world.",
+  description:
+    "Your race build tracker and running diary — plan builds, log workouts, and manage race logistics.",
 };
 
 export default function RootLayout({
@@ -25,9 +27,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased h-screen overflow-hidden`}
+        className={`${geistSans.variable} ${geistMono.variable} min-h-screen bg-zinc-50 antialiased`}
       >
-        {children}
+        <Nav />
+        <main className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6">
+          {children}
+        </main>
       </body>
     </html>
   );
